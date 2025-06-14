@@ -1,0 +1,12 @@
+﻿ipykernel
+numpy
+pandas
+matplotlib
+tensorflow
+requests
+beautifulsoup4
+keras
+flask
+streamlit
+flask-cors
+
