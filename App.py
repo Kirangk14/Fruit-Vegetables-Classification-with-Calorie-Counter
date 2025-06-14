@@ -1,12 +1,89 @@
-﻿import streamlit as st
+﻿
+import streamlit as st
+from PIL import Image
+import requests
+from bs4 import BeautifulSoup
+import numpy as np
+from keras.preprocessing.image import load_img, img_to_array
+from keras.models import load_model
+
+model = load_model('FV.h5')
+
+labels = {0: 'apple', 1: 'banana', 2: 'beetroot', 3: 'bell pepper', 4: 'cabbage', 5: 'capsicum', 6: 'carrot',
+          7: 'cauliflower', 8: 'chilli pepper', 9: 'corn', 10: 'cucumber', 11: 'eggplant', 12: 'garlic', 13: 'ginger',
+          14: 'grapes', 15: 'jalepeno', 16: 'kiwi', 17: 'lemon', 18: 'lettuce',
+          19: 'mango', 20: 'onion', 21: 'orange', 22: 'paprika', 23: 'pear', 24: 'peas', 25: 'pineapple',
+          26: 'pomegranate', 27: 'potato', 28: 'raddish', 29: 'soy beans', 30: 'spinach', 31: 'sweetcorn',
+          32: 'sweetpotato', 33: 'tomato', 34: 'turnip', 35: 'watermelon'}
+
+fruits = ['Apple', 'Banana', 'Bello Pepper', 'Chilli Pepper', 'Grapes', 'Jalepeno', 'Kiwi', 'Lemon', 'Mango', 'Orange',
+          'Paprika', 'Pear', 'Pineapple', 'Pomegranate', 'Watermelon']
+vegetables = ['Beetroot', 'Cabbage', 'Capsicum', 'Carrot', 'Cauliflower', 'Corn', 'Cucumber', 'Eggplant', 'Ginger',
+              'Lettuce', 'Onion', 'Peas', 'Potato', 'Raddish', 'Soy Beans', 'Spinach', 'Sweetcorn', 'Sweetpotato',
+              'Tomato', 'Turnip']
+
+
+def fetch_calories(prediction):
+    try:
+        url = 'https://www.google.com/search?&q=calories in ' + prediction
+        req = requests.get(url).text
+        scrap = BeautifulSoup(req, 'html.parser')
+        calories = scrap.find("div", class_="BNeawe iBp4i AP7Wnd").text
+        return calories
+    except Exception as e:
+        st.error("Can't able to fetch the Calories")
+        print(e)
+
+
+def prepare_image(img_path):
+    img = load_img(img_path, target_size=(224, 224, 3))
+    img = img_to_array(img)
+    img = img / 255
+    img = np.expand_dims(img, [0])
+    answer = model.predict(img)
+    y_class = answer.argmax(axis=-1)
+    print(y_class)
+    y = " ".join(str(x) for x in y_class)
+    y = int(y)
+    res = labels[y]
+    print(res)
+    return res.capitalize()
+
+
+def run():
+    st.title("Fruits🍍-Vegetable🍅 Classification")
+    img_file = st.file_uploader("Choose an Image", type=["jpg", "png"])
+    if img_file is not None:
+        img = Image.open(img_file).resize((250, 250))
+        st.image(img, use_column_width=False)
+        save_image_path = './upload_images/' + img_file.name
+        with open(save_image_path, "wb") as f:
+            f.write(img_file.getbuffer())
+
+        # if st.button("Predict"):
+        if img_file is not None:
+            result = prepare_image(save_image_path)
+            if result in vegetables:
+                st.info('**Category : Vegetables**')
+            else:
+                st.info('**Category : Fruit**')
+            st.success("**Predicted : " + result + '**')
+            cal = fetch_calories(result)
+            if cal:
+                st.warning('**' + cal + '(100 grams)**')
+
+
+
+if __name__ == "__main__":
+    run()
+import streamlit as st
 from PIL import Image
 import numpy as np
 import os
 import time
 import random
-from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from tensorflow.keras.models import load_model
-
+from keras.preprocessing.image import load_img, img_to_array
+from keras.models import load_model
 import random
 
 # Page configuration
@@ -421,7 +498,7 @@ def load_trained_model():
         model = load_model('FV.h5')
         return model
     except:
-        st.warning("⚠️ Model file 'FV.h5' not found. Using demo mode.")
+        st.warning("⚠ Model file 'FV.h5' not found. Using demo mode.")
         return None
 
 # Class labels and categories
@@ -650,7 +727,7 @@ def main():
         with col2:
             st.image(
                 image, 
-                caption="🖼️ Uploaded Image", 
+                caption="🖼 Uploaded Image", 
                 use_container_width=True,
                 width=300
             )
@@ -705,7 +782,7 @@ def main():
                 st.session_state.processed = True
                 
                 # Warning message
-                st.warning("⚠️ This doesn't appear to be a fruit or vegetable!")
+                st.warning("⚠ This doesn't appear to be a fruit or vegetable!")
                 
                 # Display error result
                 display_error_result(confidence)
@@ -721,16 +798,16 @@ def main():
     # Info section
     st.markdown("<br><br>", unsafe_allow_html=True)
     
-    with st.expander("ℹ️ How it works"):
+    with st.expander("ℹ How it works"):
         st.markdown("""
         ### 🧠 AI-Powered Recognition
         This application uses deep learning to identify fruits and vegetables from images:
         
-        - **🔍 Image Analysis**: Advanced computer vision algorithms analyze your uploaded image
-        - **🎯 Classification**: The AI model predicts the type of fruit or vegetable
-        - **✅ Validation**: Checks if the detected item is actually a fruit or vegetable
-        - **📊 Nutritional Info**: Get calorie information for healthy eating choices
-        - **⚡ Fast Processing**: Results in seconds with confidence scores
+        - *🔍 Image Analysis*: Advanced computer vision algorithms analyze your uploaded image
+        - *🎯 Classification*: The AI model predicts the type of fruit or vegetable
+        - *✅ Validation*: Checks if the detected item is actually a fruit or vegetable
+        - *📊 Nutritional Info*: Get calorie information for healthy eating choices
+        - *⚡ Fast Processing*: Results in seconds with confidence scores
         
         ### 📱 Tips for Best Results
         - Use clear, well-lit images
@@ -740,18 +817,18 @@ def main():
         - Make sure the item fills most of the frame
         
         ### 🎯 Supported Items
-        **Fruits:** Apple, Banana, Bell Pepper, Chilli Pepper, Grapes, Jalapeño, Kiwi, Lemon, Mango, Orange, Paprika, Pear, Pineapple, Pomegranate, Watermelon
+        *Fruits:* Apple, Banana, Bell Pepper, Chilli Pepper, Grapes, Jalapeño, Kiwi, Lemon, Mango, Orange, Paprika, Pear, Pineapple, Pomegranate, Watermelon
         
-        **Vegetables:** Beetroot, Cabbage, Capsicum, Carrot, Cauliflower, Corn, Cucumber, Eggplant, Garlic, Ginger, Lettuce, Onion, Peas, Potato, Radish, Soy Beans, Spinach, Sweet Corn, Sweet Potato, Tomato, Turnip
+        *Vegetables:* Beetroot, Cabbage, Capsicum, Carrot, Cauliflower, Corn, Cucumber, Eggplant, Garlic, Ginger, Lettuce, Onion, Peas, Potato, Radish, Soy Beans, Spinach, Sweet Corn, Sweet Potato, Tomato, Turnip
         """)
     
     # Footer
     st.markdown("""
     <div style="text-align: center; margin-top: 3rem; padding: 2rem; color: rgba(255,255,255,0.7);">
-        <p>Made with ❤️ using Streamlit and Deep Learning</p>
+        <p>Made with ❤ using Streamlit and Deep Learning</p>
         <p>🌟 Helping you make healthier food choices with AI</p>
     </div>
     """, unsafe_allow_html=True)
 
-if __name__ == "__main__":
+if __name__== "_main_":
     main()
