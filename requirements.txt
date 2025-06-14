@@ -8,5 +8,5 @@ beautifulsoup4
 keras
 flask
 streamlit
-flask-cors
+pillow
 
