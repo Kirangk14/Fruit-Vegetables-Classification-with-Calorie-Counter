@@ -6,6 +6,7 @@ import time
 import random
 from keras.preprocessing.image import load_img, img_to_array
 from keras.models import load_model
+import random
 
 # Page configuration
 st.set_page_config(
@@ -226,6 +227,29 @@ st.markdown("""
         }
     }
     
+    /* Error result card */
+    .error-result-card {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        margin: 1rem 0;
+        box-shadow: 0 15px 35px rgba(255, 107, 107, 0.3);
+        animation: errorSlide 0.8s ease-out;
+        text-align: center;
+    }
+    
+    @keyframes errorSlide {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
     /* Category badges */
     .category-badge {
         display: inline-block;
@@ -254,6 +278,10 @@ st.markdown("""
     
     .vegetable-badge {
         background: linear-gradient(45deg, #51cf66, #69db7c);
+    }
+    
+    .unknown-badge {
+        background: linear-gradient(45deg, #ffa726, #ff9800);
     }
     
     /* Prediction text */
@@ -437,8 +465,12 @@ st.markdown("""
 <div class="floating-element" style="bottom: 10%; left: 20%; animation-delay: 4s;">🍊</div>
 """, unsafe_allow_html=True)
 
+def is_valid_category(label):
+    """Check if the predicted label is a valid fruit or vegetable"""
+    return label.lower() in fruits or label.lower() in vegetables
+
 def prepare_image(img_path, model):
-    """Prepare image for prediction"""
+    """Prepare image for prediction and validate category"""
     try:
         img = load_img(img_path, target_size=(224, 224, 3))
         img = img_to_array(img)
@@ -448,13 +480,30 @@ def prepare_image(img_path, model):
         if model:
             prediction = model.predict(img)
             pred_index = np.argmax(prediction, axis=1)[0]
-            return labels[pred_index].lower()
+            confidence = np.max(prediction) * 100
+            label = labels[pred_index]
+            
+            # Check if confidence is too low (threshold can be adjusted)
+            if confidence < 50:
+                return None, confidence
+            
+            # Check if it's a valid fruit or vegetable
+            if not is_valid_category(label):
+                return None, confidence
+            
+            return label, confidence
         else:
             # Demo mode - random prediction
-            return random.choice(list(labels.values()))
+            if random.random() < 0.8:  # 80% chance of valid prediction
+                label = random.choice(list(labels.values()))
+                confidence = random.uniform(60, 95)
+                return label, confidence
+            else:
+                return None, random.uniform(20, 49)
+                
     except Exception as e:
-        st.error(f"Error processing image: {str(e)}")
-        return None
+        st.error(f"❌ Error processing image: {str(e)}")
+        return None, 0
 
 def create_confetti():
     """Create confetti animation"""
@@ -506,8 +555,8 @@ def animate_progress():
     
     progress_container.empty()
 
-def display_result(prediction, category, calories):
-    """Display animated result"""
+def display_result(prediction, category, calories, confidence):
+    """Display animated result for valid predictions"""
     category_emoji = "🍎" if category == "fruit" else "🥕"
     badge_class = "fruit-badge" if category == "fruit" else "vegetable-badge"
     
@@ -524,8 +573,37 @@ def display_result(prediction, category, calories):
         <div class="prediction-text">
             ✅ {prediction.title()}
         </div>
+        <div style="font-size: 1rem; margin: 1rem 0; opacity: 0.9;">
+            🎯 Confidence: {confidence:.1f}%
+        </div>
         <div class="calorie-info">
             🔥 <strong>Approximate Calories:</strong> {calories} (per 100g)
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def display_error_result(confidence):
+    """Display error result for invalid predictions"""
+    st.markdown(f"""
+    <div class="error-result-card">
+        <div class="category-badge unknown-badge">
+            ❓ UNKNOWN
+        </div>
+        <div class="prediction-text">
+            🚫 Not a Fruit or Vegetable
+        </div>
+        <div style="font-size: 1rem; margin: 1rem 0; opacity: 0.9;">
+            🎯 Confidence: {confidence:.1f}%
+        </div>
+        <div class="calorie-info">
+            💡 <strong>Suggestion:</strong> Please upload an image of a fruit or vegetable for classification
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.9rem; opacity: 0.8;">
+            <p>📸 <strong>Tips for better results:</strong></p>
+            <p>• Use clear, well-lit images</p>
+            <p>• Ensure the fruit/vegetable is the main subject</p>
+            <p>• Avoid blurry or heavily processed images</p>
+            <p>• Try single items rather than mixed collections</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -594,18 +672,20 @@ def main():
             
             # Get prediction
             with st.spinner("Processing..."):
-                prediction = prepare_image(save_image_path, model)
+                prediction, confidence = prepare_image(save_image_path, model)
             
-            if prediction:
-                # Determine category and calories
-                category = "fruit" if prediction in fruits else "vegetable"
-                calories = calorie_data.get(prediction, "Not available")
+            if prediction is not None:
+                # Valid fruit or vegetable detected
+                category = "fruit" if prediction.lower() in fruits else "vegetable"
+                calories = calorie_data.get(prediction.lower(), "Not available")
                 
                 # Store result in session state
                 st.session_state.prediction_result = {
                     'prediction': prediction,
                     'category': category,
-                    'calories': calories
+                    'calories': calories,
+                    'confidence': confidence,
+                    'is_valid': True
                 }
                 st.session_state.processed = True
                 
@@ -613,10 +693,21 @@ def main():
                 st.success("🎉 Classification completed successfully!")
                 
                 # Display result
-                display_result(prediction, category, calories)
+                display_result(prediction, category, calories, confidence)
                 
             else:
-                st.error("❌ Failed to process the image. Please try again with a different image.")
+                # Invalid item detected or low confidence
+                st.session_state.prediction_result = {
+                    'confidence': confidence,
+                    'is_valid': False
+                }
+                st.session_state.processed = True
+                
+                # Warning message
+                st.warning("⚠️ This doesn't appear to be a fruit or vegetable!")
+                
+                # Display error result
+                display_error_result(confidence)
     
     # Reset button
     if st.session_state.processed:
@@ -636,14 +727,21 @@ def main():
         
         - **🔍 Image Analysis**: Advanced computer vision algorithms analyze your uploaded image
         - **🎯 Classification**: The AI model predicts the type of fruit or vegetable
+        - **✅ Validation**: Checks if the detected item is actually a fruit or vegetable
         - **📊 Nutritional Info**: Get calorie information for healthy eating choices
-        - **⚡ Fast Processing**: Results in seconds with high accuracy
+        - **⚡ Fast Processing**: Results in seconds with confidence scores
         
         ### 📱 Tips for Best Results
         - Use clear, well-lit images
         - Ensure the fruit/vegetable is the main subject
         - Avoid blurry or heavily filtered photos
         - Single items work better than mixed collections
+        - Make sure the item fills most of the frame
+        
+        ### 🎯 Supported Items
+        **Fruits:** Apple, Banana, Bell Pepper, Chilli Pepper, Grapes, Jalapeño, Kiwi, Lemon, Mango, Orange, Paprika, Pear, Pineapple, Pomegranate, Watermelon
+        
+        **Vegetables:** Beetroot, Cabbage, Capsicum, Carrot, Cauliflower, Corn, Cucumber, Eggplant, Garlic, Ginger, Lettuce, Onion, Peas, Potato, Radish, Soy Beans, Spinach, Sweet Corn, Sweet Potato, Tomato, Turnip
         """)
     
     # Footer
