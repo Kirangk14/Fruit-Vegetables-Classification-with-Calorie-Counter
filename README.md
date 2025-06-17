@@ -4,6 +4,10 @@
 
 This is a simple and interactive web application that classifies fruits and vegetables from images uploaded by the user. It not only predicts the name of the fruit or vegetable but also provides calorie information using web scraping.
 
+## 🎥 Demo Video
+
+▶️ [Watch Demo Video](https://drive.google.com/file/d/1yPMLwiikY3m8PHza4dgmISDG9PhcK76e/view?usp=sharing)
+
 ## 🚀 Features
 
 - Upload an image of a fruit or vegetable.
@@ -55,8 +59,6 @@ The app displays:
 ## ✅ Conclusion
 
 This project demonstrates how deep learning can be integrated into real-world applications that are accessible to everyday users through a browser. It showcases the use of image classification and dynamic data fetching using Python libraries.
-
----
 
 
 
